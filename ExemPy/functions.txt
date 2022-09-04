@@ -1,0 +1,26 @@
+GCM
+- activation
+- exclude
+- reset_N
+- bias_N
+- probs
+- choose
+- categorize
+- multicat
+
+Utils
+- HzToBark
+- gettestset
+- checkaccuracy
+- propcorr
+- overallacc
+- confusion
+- errorfunc
+- continuum
+- datasummary
+
+Viz
+- getactiv
+- activplot
+- accplot
+- cpplot
