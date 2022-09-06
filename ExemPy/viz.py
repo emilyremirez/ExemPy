@@ -202,7 +202,7 @@ def cpplot(datalist, cat, datanames = None, plot50 = True):
     yaxisname = "Proportion " + stv + " Response"
     p.set_ylabel(yaxisname)
     p.set_xlabel("Step")
-    p.set_ylim(0,1)
+    p.set_ylim(-0.05, 1.05)
     
     if plot50 == True:
         plt.axhline(y = 0.5, color = 'gray', linestyle = ':')

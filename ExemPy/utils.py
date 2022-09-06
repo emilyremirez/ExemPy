@@ -228,7 +228,7 @@ def continuum (data, start, end, dimslist, steps = 7, stimdetails = False):
     # create a copy of the entire df to subset according to conditions
     # match category to value from dictionary, subset
     # repeat subsetting until all conditions are satisfied
-    st  =data.copy()
+    st = data.copy()
     for i in range(0, len(start)):
         cat = list(start.keys())[i]
         val = list(start.values())[i]
@@ -239,11 +239,11 @@ def continuum (data, start, end, dimslist, steps = 7, stimdetails = False):
     ## a unique row in the dataframe
     st = st.sample(1).reset_index()
     
-    en=data.copy()
+    en = data.copy()
     for i in range(0,len(end)):
         cat = list(end.keys())[i]
         val = list(end.values())[i]
-        condition = en[cat]==val
+        condition = en[cat] == val
         en = pd.DataFrame(en.loc[condition])
     en = en.sample(1).reset_index()
     
@@ -294,6 +294,7 @@ def datasummary(dataset, catslist, dimslist):
     # group by categories: cats[0] will be used to group first, then cats[1]
     # i.e., if cats = ["vowel","type"], vowel1-type1, vowel1-type2, vowel2-type1, vowel2-type2...
     # get the mean of values for each dimension grouped by categories
-    df = dataset.groupby(catslist, as_index = False)[dimslist].mean()
+    d = dataset.copy()
+    df = d.groupby(catslist, as_index = False)[dimslist].mean()
     return df
 

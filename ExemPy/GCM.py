@@ -16,7 +16,7 @@ from pandas import DataFrame
 from scipy.optimize import minimize
 import seaborn as sns
 
-def activation(testset, cloud, dims, c = 25):
+def activation(testset, cloud, dimsdict, c = 25):
     '''
     Calculate activation for all exemplars stored in the cloud
     with respect to some stimulus, referred to as test. Returns
@@ -38,7 +38,7 @@ def activation(testset, cloud, dims, c = 25):
         
     '''
     # Get stuff ready
-    dims.update({key : abs(val) for key, val in dims.items()})
+    dims = dimsdict.copy()
     dims.update((x, (y/sum(dims.values()))) for x, y in dims.items())   # Normalize weights to sum to 1
     
     # If the testset happens to have N in it, remove it before joining dfs 
@@ -46,7 +46,7 @@ def activation(testset, cloud, dims, c = 25):
     if 'N' in test.columns:
         test = test.drop(columns='N', axis=1,inplace=True)
     
-    exemplars=cloud.copy()
+    exemplars = cloud.copy()
 
     # Merge test and exemplars
     bigdf = pd.merge(
@@ -107,13 +107,13 @@ def exclude(cloud, test, exclude_self = True, alsoexclude = None):
     
     # Remove the stimulus from the cloud
     if exclude_self == True:
-        exemplars = cloud[~cloud.isin(test)].dropna()  
+        exemplars = exemplars[~exemplars.isin(test)].dropna()  
     
     if alsoexclude != None:
         for feature in alsoexclude:
             featval = test[feature].iloc[0]
-            exclude_exemps=exemplars[ exemplars[feature] == featval ].index
-            exemplars.drop(exclude_exemps, inplace=True)
+            exclude_exemps = exemplars[exemplars[feature] == featval].index
+            exemplars = exemplars.drop(exclude_exemps, inplace = True)
     return exemplars
 
 
@@ -199,7 +199,7 @@ def probs(bigdf, cats):
         # rename a for activation to probability
         pr = pr.rename_axis(cat).reset_index().rename(columns={"a" : "probability"})
         # add this to the dictionary 
-        prs[cat]=pr
+        prs[cat] = pr
     return prs
 
 
@@ -231,10 +231,13 @@ def choose(probsdict, test, cats, runnerup = False, fc = None):
     
     '''
     newtest = test.copy()      # make a copy of the test set to add to
-    pr=probsdict.copy()        # make a copy of the probs dict to subset if forced choice is set
+    pr = probsdict.copy()        # make a copy of the probs dict to subset if forced choice is set
     choice = ''
     choiceprob = 1
     
+    # If using forced choice, restrict the choices to the terms 
+    # This doesn't change the probability! So something could have a low prob,
+    ## but still be the winner
     if fc != None: 
         fccats = fc.keys()
         for fccat in fccats:
@@ -248,20 +251,23 @@ def choose(probsdict, test, cats, runnerup = False, fc = None):
         choiceprobname = cat + 'Prob'
         
         dframe = pr[cat]
-        prob=dframe['probability']
-        
+        prob = dframe['probability']
         winner = dframe.loc[prob==max(prob)]
+            
+        # if more than one winner, choose randomly
+        if len(winner) > 1:
+            winner = winner.sample(1)
                                                  
         choice = winner[cat].item()
         choiceprob = winner['probability'].item()
         
         newtest[choicename] = choice
-        newtest[choiceprobname] = choiceprob
+        newtest[choiceprobname] = choiceprob      
     return newtest
     
 
-def categorize(testset, cloud, cats, dims, c, 
-               exclude_self = True,alsoexclude = None, N=1, runnerup=False, fc=None):
+def categorize(testset, cloud, cats, dimsdict, c, 
+               exclude_self = True, alsoexclude = None, N=1, runnerup=False, fc=None):
     '''
     Categorizes a stimulus based on functions defined in library. 
     1. Exclude any desired stimuli
@@ -286,7 +292,7 @@ def categorize(testset, cloud, cats, dims, c,
         categories probability should be calculated for (e.g. ['vowel','gender']).
         Items should match the name of columns in the data frame
     
-    dims = a dictionary with dimensions as keys and weights, w, as values. 
+    dimsdict = a dictionary with dimensions as keys and weights, w, as values. 
     
     c = an integer representing exemplar sensitivity. Defaults to .01. 
     
@@ -305,16 +311,17 @@ def categorize(testset, cloud, cats, dims, c,
         will also be included in the dataframe. Defaults to False.
 
     '''
-    test=testset
-    exemplars=exclude(cloud,test,exclude_self=exclude_self,alsoexclude=alsoexclude)
-    reset_N(exemplars, N=N)
-    bigdf=activation(test,exemplars,dims=dims,c=c)
-    pr=probs(bigdf,cats)
-    choices=choose(pr,test,cats,runnerup=runnerup,fc=fc)
+    exemplars = cloud.copy()
+    test = testset
+    exemplars = exclude(exemplars, test, exclude_self = exclude_self, alsoexclude = alsoexclude)
+    exemplars = reset_N(exemplars, N = N)
+    bigdf = activation(test, exemplars, dimsdict = dimsdict, c = c)
+    pr = probs(bigdf, cats)
+    choices = choose(pr, test, cats, runnerup = runnerup, fc = fc)
     return choices 
 
 
-def multicat(testset, cloud, cats, dims, c = 25, N = 1, biascat = None, catbias = None, rescat = None, ncyc = None,
+def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catbias = None, rescat = None, ncyc = None,
                  exclude_self = True, alsoexclude = None, runnerup = False, fc = None):
     '''
     Categorizes a dataframe of 1 or more stimuli based on functions defined in library
@@ -341,7 +348,7 @@ def multicat(testset, cloud, cats, dims, c = 25, N = 1, biascat = None, catbias 
         categories probability should be calculated for (e.g. ['vowel','gender']).
         Items should match the name of columns in the data frame
         
-    dims = a dictionary with dimensions as keys and weights, w, as values. 
+    dimsdict = a dictionary with dimensions as keys and weights, w, as values. 
     
     c = an integer representing exemplar sensitivity. Defaults to 25. 
     
@@ -376,13 +383,15 @@ def multicat(testset, cloud, cats, dims, c = 25, N = 1, biascat = None, catbias 
         with higher probability, regardless of whether other vowels not listed have higher probabilities. 
         There can be any number of alternatives in the list. 
     '''
-    
     choicelist=[]
     for ix in list(testset.index.values):
+        # Reload exemplars within the loop
+        ## if not, exemplars shrinks every time you use exclude()!
+        exemplars = cloud.copy()   
         test = testset.loc[[ix,]]
         
         # exclusions
-        exemplars=exclude(cloud, test, exclude_self = exclude_self, alsoexclude = alsoexclude)
+        exemplars = exclude(exemplars, test, exclude_self = exclude_self, alsoexclude = alsoexclude)
         
         #add N 
         if catbias != None: 
@@ -390,7 +399,7 @@ def multicat(testset, cloud, cats, dims, c = 25, N = 1, biascat = None, catbias 
         else: exemplars = reset_N(exemplars, N = N)
         
         # calculate probabilities
-        bigdf = activation(test, exemplars, dims = dims,c = c)
+        bigdf = activation(test, exemplars, dimsdict = dimsdict, c = c)
         pr = probs(bigdf, cats)
         
         # resonate if applicable -- recalculate probs based on a resonance term
@@ -402,13 +411,13 @@ def multicat(testset, cloud, cats, dims, c = 25, N = 1, biascat = None, catbias 
                 exemplars['resterm'] = exemplars[rescat].map(edict) / (n+1)
                 # Add resterm to N value; N only ever goes up
                 exemplars['N'] = exemplars['N'] + exemplars['resterm']
-                bigdf=activation(test, exemplars, dims = dims, c=c)
-                pr=probs(bigdf, cats)
+                bigdf = activation(test, exemplars, dimsdict = dimsdict, c = c)
+                pr = probs(bigdf, cats)
         
         # Luce's choice rule
-        choices = choose(pr, test, cats, runnerup = runnerup, fc = fc)
+        choicerow = choose(pr, test, cats, runnerup = runnerup, fc = fc)       
+        choicelist.append(choicerow)
         
-        choicelist.append(choices)
     choices = pd.concat(choicelist, ignore_index = True)
     return choices
 

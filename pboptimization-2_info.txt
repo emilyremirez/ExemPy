@@ -1,0 +1,1 @@
+{'fitdims': ['z1', 'z2', 'z3'], 'anchordim': 'z0', 'cats': ['vowel'], 'trials': 5, 'tol': 0.1}
