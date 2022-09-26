@@ -86,7 +86,7 @@ def activplot(a, x, y, cat, test, invert = True):
                          alpha = 0.5,
                          sizes = (5, 100),
                          legend = False)
-    pl = sns.scatterplot(data=test,
+    pl = sns.scatterplot(data = test,
                          x = x,
                          y = y,
                          alpha = .5,
@@ -94,6 +94,7 @@ def activplot(a, x, y, cat, test, invert = True):
                          marker = "X",
                          s = 50,
                          legend = False)
+    
     
     if invert == True:
         pl.invert_xaxis()
@@ -136,7 +137,7 @@ def accplot(acc, cat):
     plt.show()
     return pl
 
-def cpplot(datalist, cat, datanames = None, plot50 = True):
+def cpplot(datalist, cat, xax, datanames = None, plot50 = True):
     '''
     Generates a (cp = categorical perception) plot. On the X axis is the stimulus number,
     on the Y axis is the proportion of [label] responses with [label] being the label that
@@ -151,60 +152,70 @@ def cpplot(datalist, cat, datanames = None, plot50 = True):
     
     Optional parameters:
     
+    xax = String giving the name of a column to use as the x-axis on the plot; for example, the step
+        number along a continuum
+    
     datanames = List of labels to use for each curve in the plot. Names should be in same
         order as in datalist
         
     plot50 = Boolean indicating whether a dashed line is added at 0.5 to aid in assessing
         boundaries in categorical perception. Defaults to true. 
     '''
-    # Set up some labels
     if type(datalist) != list:
         datalist = [datalist]
     choicename = cat + 'Choice'
     probname = cat + 'Prob'
-    # Get the label of the first stimulus
-    stv = datalist[0].loc[0][choicename]
-    
+    stv = datalist[0].loc[0][choicename] #start value
+    env = datalist[0].iloc[-1][choicename] #end value
+
     def copy(d):
         d = d
         return d
     def inv(d):
         d = 1-d
         return d
-    
-    # get the inverse of probability if not first value, for each dataset
-    curvelist = []
-    i = 1
+
     j = 0
     for dataset in datalist:
-        if datanames != None:
+        if datanames != None:                                                       
             lab = datanames[j]
         else:
             lab = "Data " + str(i)
+        ## get the inverse of probability if not first value, for each dataset
+            # If neither start nor end, set value to NaN
         dataset['yax'] = dataset.apply(
-            lambda x: copy(x[probname])
-            if (x[choicename]==stv)
-            else inv(x[probname]),
+            lambda x: copy(x[probname]) if x[choicename] == stv
+            else (inv(x[probname]) if x[choicename] == env else float("NaN")),
             axis = 1)
-        curve = sns.lineplot(
-            x = "step",
-            y = "yax",
-            data = dataset,
-            label = lab)
-        i += 1
+        dataset["Data"] = lab
         j += 1
-        dataset.drop('yax', axis=1, inplace=True)
-       
 
-    # use the last dataset/plot to set axes and stuff
-    p = curve
+    datalist = pd.concat(datalist)
+    curve = sns.pointplot(
+            x = xax,
+            y = "yax",
+            data = datalist,
+            hue = "Data")
+
+    for line, row in datalist.iterrows():
+        if math.isnan(row["yax"]):
+            realchoice = str(row[choicename])
+            realprob = str(np.round(row[probname], 2))
+            stimulusnumber = str(row[xax])
+            dataset = str(row["Data"])
+            print("----- Hey! -----")
+            print("Stimulus", stimulusnumber)
+            print("in dataset", dataset)
+            print("was categorized as", realchoice)
+            print("with probability", realprob)
+
     # Add labels & plot
     yaxisname = "Proportion " + stv + " Response"
-    p.set_ylabel(yaxisname)
-    p.set_xlabel("Step")
-    p.set_ylim(-0.05, 1.05)
-    
+    curve.set_ylabel(yaxisname)
+    curve.set_xlabel("Step")
+    curve.set_ylim(-0.05, 1.05)
+
     if plot50 == True:
         plt.axhline(y = 0.5, color = 'gray', linestyle = ':')
-    
-    plt.show()
+        
+    return curve
