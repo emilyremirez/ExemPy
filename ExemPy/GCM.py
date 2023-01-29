@@ -195,7 +195,11 @@ def probs(bigdf, cats):
         # Sum up activation for every label within that category
         cat_a = bigdf.groupby(label).a.sum()
         # Divide the activation for each label by the total activation for that category
-        pr = cat_a / sum(cat_a)
+        ## if total activation is 0, don't divide
+        if sum(cat_a) != 0:
+            pr = cat_a / sum(cat_a)
+        else:
+            pr = cat_a
         # rename a for activation to probability
         pr = pr.rename_axis(cat).reset_index().rename(columns={"a" : "probability"})
         # add this to the dictionary 
@@ -203,7 +207,7 @@ def probs(bigdf, cats):
     return prs
 
 
-def choose(probsdict, test, cats, runnerup = False, fc = None):
+def choose(probsdict, test, cats, fc = None):
     '''
     Chooses a label for each category which the stimulus will be categorized as.
     Returns the test/stimulus dataframe with added columns showing what was 
@@ -220,8 +224,7 @@ def choose(probsdict, test, cats, runnerup = False, fc = None):
     cats = list of categories to be considered (e.g., ["vowel"])
             
     Optional parameters:
-    runnerup = boolean; when true the label with the second highest probability
-        will also be included in the dataframe. Defaults to False. 
+ 
         
     fc = Dict where keys are category names in the dataframe and values are a list of category labels.
         Used to simulate a forced choice experiment in which the perceiver has a limited number
@@ -257,9 +260,15 @@ def choose(probsdict, test, cats, runnerup = False, fc = None):
         # if more than one winner, choose randomly
         if len(winner) > 1:
             winner = winner.sample(1)
-                                                 
+        
+        # if no winner, assign "na"
+        if len(winner) < 1:
+            winner[cat] = "na"
+            winner['probability'] = np.NaN
+        
         choice = winner[cat].item()
         choiceprob = winner['probability'].item()
+        # with the above, i keep getting normal results pb, but 1.0 error for kuy
         
         newtest[choicename] = choice
         newtest[choiceprobname] = choiceprob      
@@ -267,7 +276,7 @@ def choose(probsdict, test, cats, runnerup = False, fc = None):
     
 
 def categorize(testset, cloud, cats, dimsdict, c, 
-               exclude_self = True, alsoexclude = None, N=1, runnerup=False, fc=None):
+               exclude_self = True, alsoexclude = None, N=1, fc=None):
     '''
     Categorizes a stimulus based on functions defined in library. 
     1. Exclude any desired stimuli
@@ -307,8 +316,6 @@ def categorize(testset, cloud, cats, dimsdict, c,
     N = integer indicating the base activation value to be added to
         each exemplar (row) in the dataframe. Defaults to 1
         
-    runnerup = boolean; when true the label with the second highest probability
-        will also be included in the dataframe. Defaults to False.
 
     '''
     exemplars = cloud.copy()
@@ -317,12 +324,12 @@ def categorize(testset, cloud, cats, dimsdict, c,
     exemplars = reset_N(exemplars, N = N)
     bigdf = activation(test, exemplars, dimsdict = dimsdict, c = c)
     pr = probs(bigdf, cats)
-    choices = choose(pr, test, cats, runnerup = runnerup, fc = fc)
+    choices = choose(pr, test, cats, fc = fc)
     return choices 
 
 
 def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catbias = None, rescat = None, ncyc = None,
-                 exclude_self = True, alsoexclude = None, runnerup = False, fc = None):
+                 exclude_self = True, alsoexclude = None, fc = None):
     '''
     Categorizes a dataframe of 1 or more stimuli based on functions defined in library
     
@@ -374,8 +381,6 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
     N = integer indicating the base activation value to be added to
         each exemplar (row) in the dataframe. Defaults to 1
         
-    runnerup = boolean; when true the label with the second highest probability
-        will also be included in the dataframe. Defaults to False.
         
     fc = Dict where keys are category names in the dataframe and values are a list of category labels.
         Used to simulate a forced choice experiment in which the perceiver has a limited number
@@ -415,7 +420,7 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
                 pr = probs(bigdf, cats)
         
         # Luce's choice rule
-        choicerow = choose(pr, test, cats, runnerup = runnerup, fc = fc)       
+        choicerow = choose(pr, test, cats, fc = fc)       
         choicelist.append(choicerow)
         
     choices = pd.concat(choicelist, ignore_index = True)

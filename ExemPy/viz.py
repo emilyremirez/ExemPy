@@ -137,7 +137,7 @@ def accplot(acc, cat):
     plt.show()
     return pl
 
-def cpplot(datalist, cat, xax, datanames = None, plot50 = True):
+def cpplot(datalist, cat, alts, xax, datanames = None, plot50 = True):
     '''
     Generates a (cp = categorical perception) plot. On the X axis is the stimulus number,
     on the Y axis is the proportion of [label] responses with [label] being the label that
@@ -149,6 +149,8 @@ def cpplot(datalist, cat, xax, datanames = None, plot50 = True):
         containing each stimulus, what it was categorized as, and the probability
     
     cat = Type of category decision to visualize, e.g., 'vowel'
+    
+    alts = List indicating 
     
     Optional parameters:
     
@@ -165,8 +167,8 @@ def cpplot(datalist, cat, xax, datanames = None, plot50 = True):
         datalist = [datalist]
     choicename = cat + 'Choice'
     probname = cat + 'Prob'
-    stv = datalist[0].loc[0][choicename] #start value
-    env = datalist[0].iloc[-1][choicename] #end value
+    stv = alts[0]
+    env = alts[1]
 
     def copy(d):
         d = d

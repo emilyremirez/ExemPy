@@ -152,47 +152,6 @@ def confusion(choices, cats):
     return matrices
 
 
-def errorfunc(x, testset, cloud, dimslist, cat):
-    ''' 
-    Returns a proportion representing the total amount of error for a single category that
-    the categorizer makes given a certain set of c and w values. This is intended to
-    be used with an optimization function so that the total amount of error can be 
-    minimized; that is, the accuracy can be maximized. 
-    Note that z0 is automatically set to 1.
-    
-    Required parameters: 
-    
-    x = a vector of values to be used by multicat. x[0] should be c, x[1], x[2], x[3]
-        should correspond to dimslist[1], dimslist[2], dimslist[3]
-        
-    testset = a dataframe with one or more rows, each a stimulus to be categorized
-        must have columns matching those given in the dims list. These columns
-        should be dimensions of the stimulus (e.g., formants)
-        
-    cloud = A dataframe of stored exemplars which every stimulus is compared to. 
-        Each row is an exemplar, which, like testset should have columns matching
-        those in the dims list
-    
-    dimslist = a list of dimensions (e.g., formants), for which weights w should be given,
-        and along which exemplars should be compared.
-    
-    cat = the category, 
-        
-    
-    '''
-    #x = [c,z1,z2,z3]
-    catlist = [cat]
-    c = x[0]
-    dimsdict = {dimslist[0] : 1,
-                dimslist[1] : x[1],
-                dimslist[2] : x[2],
-                dimslist[3] : x[3]}
-    choices = multicat(cloud, testset, catlist, dims = dimsdict, c = c)
-    accuracy = checkaccuracy(choices, catlist)
-    err = accuracy[cat+'Acc'].value_counts(normalize = True)['n']
-    return err
-
-
 def continuum (data, start, end, dimslist, steps = 7, stimdetails = False):
     '''
     Returns a continuum dataframe with interpolated values
