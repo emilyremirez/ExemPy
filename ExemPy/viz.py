@@ -52,7 +52,7 @@ def getactiv(activxn, x, y, cat):
 
 
 
-def activplot(a, x, y, cat, test, invert = True):
+def activplot(a, x, y, cat, test, invert = True, catlegend = False):
     """
     Plots each exemplar in x,y space according to specified dimensions. Labels within
     the category are grouped by color. The stimulus or test exemplar is plotted in dark
@@ -73,9 +73,14 @@ def activplot(a, x, y, cat, test, invert = True):
     
     test = name of test exemplar, one row of a DataFrame.
     
+    Optional parameters:
+    
     invert = Boolean. Specifies whether axes should be inverted (as for a vowel space). Defaults to true.
+    
+    catlegend = Boolean. Specifies whether to show a legend for the category. Defaults to false.
         
     """
+    
     
     pl = sns.scatterplot(data = a,
                          x = x,
@@ -85,7 +90,9 @@ def activplot(a, x, y, cat, test, invert = True):
                          size_norm = (0, a.a.max()),
                          alpha = 0.5,
                          sizes = (5, 100),
-                         legend = False)
+                         legend = catlegend)
+    
+    
     pl = sns.scatterplot(data = test,
                          x = x,
                          y = y,
@@ -102,7 +109,7 @@ def activplot(a, x, y, cat, test, invert = True):
     return pl
 
 
-def accplot(acc, cat):
+def accplot(acc, cat, **kwargs):
     '''
     Plots a bar graph showing the proportion of trials which were categorized
     veridically, that is, accuracy of categorization.
@@ -137,7 +144,7 @@ def accplot(acc, cat):
     plt.show()
     return pl
 
-def cpplot(datalist, cat, alts, xax, datanames = None, plot50 = True):
+def cpplot(datalist, cat, xax, datanames = None, plot50 = True, stv=None, env=None):
     '''
     Generates a (cp = categorical perception) plot. On the X axis is the stimulus number,
     on the Y axis is the proportion of [label] responses with [label] being the label that
@@ -149,8 +156,6 @@ def cpplot(datalist, cat, alts, xax, datanames = None, plot50 = True):
         containing each stimulus, what it was categorized as, and the probability
     
     cat = Type of category decision to visualize, e.g., 'vowel'
-    
-    alts = List indicating 
     
     Optional parameters:
     
@@ -167,8 +172,11 @@ def cpplot(datalist, cat, alts, xax, datanames = None, plot50 = True):
         datalist = [datalist]
     choicename = cat + 'Choice'
     probname = cat + 'Prob'
-    stv = alts[0]
-    env = alts[1]
+    
+    if stv == None:
+        stv = datalist[0].loc[0][choicename] #start value
+    if env == None:
+        env = datalist[0].iloc[-1][choicename] #end value
 
     def copy(d):
         d = d

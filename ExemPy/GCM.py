@@ -82,8 +82,9 @@ def exclude(cloud, test, exclude_self = True, alsoexclude = None):
     Removes specific rows from the cloud of exemplars, to be used
     prior to calculating activation. Prevents activation from being
     overpowered by stimuli that are too similar to particular exemplars.
-    E.g., prevents comparison of a stimulus to itself, or to exemplars from same speaker
-    Returns dataframe containing a subset of rows from the cloud.
+    E.g., prevents comparison of a stimulus to itself, or to exemplars
+    from same speaker. Returns dataframe containing a subset of
+    rows from the cloud.
     
     Required parameters:
     
@@ -97,23 +98,28 @@ def exclude(cloud, test, exclude_self = True, alsoexclude = None):
     
     Optional parameters:
     
-    alsoexclude = a list of strings matching columns in the cloud (categories) to exclude 
-        if value is the same as that of the test. (E.g., to exclude all exemplars from
+    alsoexclude = a list of strings matching columns in the cloud
+        categories) to exclude if value is the same as that of the test.
+        (E.g., to exclude all exemplars from
         the speaker to simulate categorization of novel speaker)
     '''
     # Make a copy of the cloud and call it exemplars. 
     #    This is what we'll return at the end
     exemplars = cloud.copy()
     
+    
     # Remove the stimulus from the cloud
     if exclude_self == True:
         exemplars = exemplars[~exemplars.isin(test)].dropna()  
     
     if alsoexclude != None:
+        if type(alsoexclude) != list:
+            alsoexclude = [alsoexclude]
         for feature in alsoexclude:
             featval = test[feature].iloc[0]
             exclude_exemps = exemplars[exemplars[feature] == featval].index
-            exemplars = exemplars.drop(exclude_exemps, inplace = True)
+            exemplars = exemplars.drop(exclude_exemps)
+    
     return exemplars
 
 
@@ -142,8 +148,9 @@ def bias_N(exemplars, cat, catbias):
     Adds or overwrites an N (base activation) colummn to the exemplar 
     cloud so that activation with respect to the stimulus can be 
     calculated. Unlike reset_N, which assigns the same N value to all exemplars,
-    bias_N will set N values according to values in a dictionary. That is, within a 
-    category type, each category will have the N value specified in the dictionary
+    bias_N will set N values according to values in a dictionary.
+    That is, within a category type, each category will have the N
+    value specified in the dictionary
     
     Required parameters:
     
@@ -195,11 +202,7 @@ def probs(bigdf, cats):
         # Sum up activation for every label within that category
         cat_a = bigdf.groupby(label).a.sum()
         # Divide the activation for each label by the total activation for that category
-        ## if total activation is 0, don't divide
-        if sum(cat_a) != 0:
-            pr = cat_a / sum(cat_a)
-        else:
-            pr = cat_a
+        pr = cat_a / sum(cat_a)
         # rename a for activation to probability
         pr = pr.rename_axis(cat).reset_index().rename(columns={"a" : "probability"})
         # add this to the dictionary 
@@ -224,12 +227,16 @@ def choose(probsdict, test, cats, fc = None):
     cats = list of categories to be considered (e.g., ["vowel"])
             
     Optional parameters:
- 
+
         
-    fc = Dict where keys are category names in the dataframe and values are a list of category labels.
-        Used to simulate a forced choice experiment in which the perceiver has a limited number
-        of alternatives. For example, if fc = {'vowel':['i','a']}, the choice will be the alternative 
-        with higher probability, regardless of whether other vowels not listed have higher probabilities. 
+    fc = Dict where keys are category names in the dataframe and
+        values are a list of category labels.
+        Used to simulate a forced choice experiment
+        in which the perceiver has a limited number
+        of alternatives. For example, if fc = {'vowel':['i','a']},
+        the choice will be the alternative 
+        with higher probability, regardless of whether other vowels not
+        listed have higher probabilities. 
         There can be any number of alternatives in the list.
     
     '''
@@ -260,20 +267,58 @@ def choose(probsdict, test, cats, fc = None):
         # if more than one winner, choose randomly
         if len(winner) > 1:
             winner = winner.sample(1)
-        
-        # if no winner, assign "na"
-        if len(winner) < 1:
-            winner[cat] = "na"
-            winner['probability'] = np.NaN
-        
+                                                 
         choice = winner[cat].item()
         choiceprob = winner['probability'].item()
-        # with the above, i keep getting normal results pb, but 1.0 error for kuy
         
         newtest[choicename] = choice
         newtest[choiceprobname] = choiceprob      
     return newtest
+
+def wideprobs(cats,pr):
+    '''
+    Get a list of probabilities reshaped to a wide format.
     
+    Required parameters:
+    
+    cats = a list of strings containing at least one item, indicating which
+        categories probability should be calculated for (e.g. ['vowel','gender']).
+        Items should match the name of columns in the data frame
+    
+    pr = Output of probs function. Dictionary of dictionaries.
+        Each key is a category; values are dictionaries where keys are
+        labels and values represent probability of the stimulus
+        being categorized into that label.
+    '''
+    widelist=[]
+    for cat in cats:
+        pref = str(cat+"_")       
+        dframe = pr[cat]
+        wide = dframe.set_index(cat).transpose().reset_index(drop=True).add_prefix(pref)
+        widelist.append(wide)
+    return widelist
+
+def probsdf(widelist, test):
+    '''
+    Alternative to the choose function. Rather than picking the category labels
+    with the highest probability, join the wide format probalities alongside the stimulus.
+    Returns the larger dataframe.
+    
+    Required parameters:
+    
+    widelist = Output of the wideprobs function. A list of probabilities for each category
+        label, reshaped to wide format.
+    
+    test = single line data frame representing the test/stimulus being categorized
+    '''
+    newdf = test
+    for wide in widelist:    
+        newdf = pd.merge(
+            newdf.assign(key = 1),
+            wide.assign(key = 1),
+            on = 'key').drop('key', axis=1)
+    return newdf
+
 
 def categorize(testset, cloud, cats, dimsdict, c, 
                exclude_self = True, alsoexclude = None, N=1, fc=None):
@@ -284,7 +329,8 @@ def categorize(testset, cloud, cats, dimsdict, c,
     3. Calculate activation
     4. Calculate probabilities
     5. Choose labels for each category
-    Returns the output of choose(): test/stimulus dataframe with added columns showing what was 
+    Returns the output of choose(): test/stimulus dataframe with
+    added columns showing what was 
     chosen for a category and with what probability
     
     Required parameters:
@@ -309,13 +355,15 @@ def categorize(testset, cloud, cats, dimsdict, c,
         so that it isn't compared to itself. Defaults to True 
         
     Optional parameters:
-    alsoexclude = a list of strings matching columns in the cloud (categories) to exclude 
-        if value is the same as that of the test. (E.g., to exclude all exemplars from
-        the speaker to simulate categorization of novel speaker)
+    alsoexclude = a list of strings matching columns in the cloud (categories)
+        to exclude  if value is the same as that of the test.
+        (E.g., to exclude all exemplars from the speaker
+        to simulate categorization of novel speaker)
     
     N = integer indicating the base activation value to be added to
         each exemplar (row) in the dataframe. Defaults to 1
         
+
 
     '''
     exemplars = cloud.copy()
@@ -328,8 +376,8 @@ def categorize(testset, cloud, cats, dimsdict, c,
     return choices 
 
 
-def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catbias = None, rescat = None, ncyc = None,
-                 exclude_self = True, alsoexclude = None, fc = None):
+def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catbias = None,
+                 exclude_self = True, alsoexclude = None,  fc = None):
     '''
     Categorizes a dataframe of 1 or more stimuli based on functions defined in library
     
@@ -338,8 +386,8 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
     3. Calculate activation
     4. Calculate probabilities
     5. Choose labels for each category
-    Returns the output of choose(): test/stimulus dataframe with added columns showing what was 
-    chosen for a category and with what probability
+    Returns the output of choose(): test/stimulus dataframe with added columns
+    showing what was chosen for a category and with what probability
     
     Required parameters:
     
@@ -364,7 +412,8 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
         
     Optional parameters:
     
-    biascat = A string indicating the category type to be biased or primed on (e.g. 'vowel', 'speaker')
+    biascat = A string indicating the category type to be biased
+        or primed on (e.g. 'vowel', 'speaker')
     
     catbias = Dict where keys are categories of biascat and values are
         ints that indicate relative N values. (e.g., {'i':5,'a':1} would make every 'i' exemplar 
@@ -376,15 +425,18 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
     
     N = integer indicating the base activation value to be added to
         each exemplar (row) in the dataframe. Defaults to 1
-        
+    
         
     fc = Dict where keys are category names in the dataframe and values are a list of category labels.
         Used to simulate a forced choice experiment in which the perceiver has a limited number
         of alternatives. For example, if fc = {'vowel':['i','a']}, the choice will be the alternative 
         with higher probability, regardless of whether other vowels not listed have higher probabilities. 
         There can be any number of alternatives in the list. 
+
+     
     '''
     choicelist=[]
+    prlist=[]
     for ix in list(testset.index.values):
         # Reload exemplars within the loop
         ## if not, exemplars shrinks every time you use exclude()!
@@ -403,11 +455,15 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
         bigdf = activation(test, exemplars, dimsdict = dimsdict, c = c)
         pr = probs(bigdf, cats)
         
-        
         # Luce's choice rule
         choicerow = choose(pr, test, cats, fc = fc)       
         choicelist.append(choicerow)
-        
+        # Get probabilities 
+        widelist = wideprobs(cats, pr)
+        widerow = probsdf(widelist,test)
+        widelist.append(widerow)
     choices = pd.concat(choicelist, ignore_index = True)
+ 
     return choices
+
 
