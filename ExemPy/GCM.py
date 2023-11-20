@@ -370,10 +370,6 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
         ints that indicate relative N values. (e.g., {'i':5,'a':1} would make every 'i' exemplar 
         contribute 5 times as much activation as each 'a)
     
-    rescat = Category to resonate on. If given, 
-    
-    ncyc = Int indicating how many cycles of resonance
-    
     alsoexclude = a list of strings matching columns in the cloud (categories) to exclude 
         if value is the same as that of the test. (E.g., to exclude all exemplars from
         the speaker to simulate categorization of novel speaker)
@@ -407,17 +403,6 @@ def multicat(testset, cloud, cats, dimsdict, c = 25, N = 1, biascat = None, catb
         bigdf = activation(test, exemplars, dimsdict = dimsdict, c = c)
         pr = probs(bigdf, cats)
         
-        # resonate if applicable -- recalculate probs based on a resonance term
-        if rescat != None:
-            for n in range(0, ncyc):
-                edict = pr[rescat].set_index(rescat).to_dict()['probability']
-                # resonance term = probability of category divided by number of cycles
-                    ## so that effect decays over time
-                exemplars['resterm'] = exemplars[rescat].map(edict) / (n+1)
-                # Add resterm to N value; N only ever goes up
-                exemplars['N'] = exemplars['N'] + exemplars['resterm']
-                bigdf = activation(test, exemplars, dimsdict = dimsdict, c = c)
-                pr = probs(bigdf, cats)
         
         # Luce's choice rule
         choicerow = choose(pr, test, cats, fc = fc)       
