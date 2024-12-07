@@ -7,7 +7,6 @@ setup(
     author = 'Emily Remirez',
     packages = ['ExemPy','ExemPy.GCM','ExemPy.utils','ExemPy.viz'],
     install_requires=[
-        'importlib_resources; python_version <"3.9"',
         'math',
         'random',
         'numpy',
