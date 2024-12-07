@@ -7,7 +7,6 @@ setup(
     author = 'Emily Remirez',
     packages = ['ExemPy'],
     install_requires=[
-        'math',
         'random',
         'numpy',
         'scipy',
